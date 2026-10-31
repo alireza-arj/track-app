@@ -1,0 +1,24 @@
+{
+  "name": "@daylog/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun dist/index.js",
+    "build": "bun build src/index.ts --target bun --outdir dist --external @libsql/client --external @prisma/adapter-libsql",
+    "db:generate": "prisma generate",
+    "db:migrate": "bun src/prepare-database.ts && prisma migrate deploy"
+  },
+  "dependencies": {
+    "elysia": "1.4.30",
+    "@elysiajs/cors": "^1.4.1",
+    "@prisma/client": "7.10.1",
+    "@prisma/adapter-libsql": "7.10.1",
+    "@libsql/client": "^0.15.15",
+    "openai": "^6.9.1",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
+  }
+}

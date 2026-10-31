@@ -1,0 +1,7 @@
+CREATE TABLE "CoachRequest" (
+ "id" TEXT NOT NULL PRIMARY KEY,
+ "payloadHash" TEXT NOT NULL,
+ "status" TEXT NOT NULL DEFAULT 'pending',
+ "answer" TEXT,
+ "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

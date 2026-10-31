@@ -1,0 +1,14 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+}
+datasource db {
+  provider = "sqlite"
+}
+model CoachRequest {
+  id          String @id
+  payloadHash String
+  status      String @default("pending")
+  answer      String?
+  createdAt   DateTime @default(now())
+}

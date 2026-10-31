@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import { Database } from 'bun:sqlite';
+import { mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { databaseUrl } from './database-url';
+const path = databaseUrl().slice(5);
+await mkdir(dirname(path), { recursive: true });
+const db = new Database(path, { create: true });
+db.exec('PRAGMA journal_mode = WAL;');
+db.close();
