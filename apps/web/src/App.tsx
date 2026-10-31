@@ -1648,9 +1648,8 @@ function ConnectionEditor({
           </label>
         </div>
         <p className="field-hint">
-          Leave the address empty when using the local Vite proxy. On your phone, localhost points
-          to the phone. For a deployed front end, use your computer’s LAN address or a private HTTPS
-          endpoint.
+          Leave the address empty when running Daylog with its local proxy. For a hosted app, enter
+          a private HTTPS address for your computer. On a phone, localhost refers to the phone.
         </p>
         <button className="secondary full" disabled={checking || busy} type="submit">
           {checking ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}Save &

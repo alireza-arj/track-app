@@ -9,7 +9,7 @@ Requires **Bun 1.3+** and **Node.js 22.12+ or 24+** (Prisma CLI / Vite tooling).
 ```sh
 bun install --frozen-lockfile
 bun run setup
-bun run build
+bun run build:all
 bun run start
 ```
 
@@ -25,6 +25,37 @@ bun run start:server  # start the Elysia AI process only when needed
 Development: `bun run dev` (front end: **http://localhost:5180**). Both the Vite development server and the production static server proxy `/api` to the local API. To override the static-server ports use `WEB_PORT` and `API_PORT`; match `PORT` in the server `.env`.
 
 The local static server serves only `apps/web/dist`, adds security / caching headers, and returns an explicit offline error for unreachable API requests. Do not use `vite preview` as your production web server.
+
+## Deploy to Vercel
+
+Import this GitHub repository into Vercel with **Root Directory = the repository root (`./`)**. The committed `vercel.json` configures the deployment:
+
+| Setting          | Value                           |
+| ---------------- | ------------------------------- |
+| Framework Preset | Vite                            |
+| Install Command  | `bun install --frozen-lockfile` |
+| Build Command    | `bun run build:web`             |
+| Output Directory | `apps/web/dist`                 |
+| Node.js          | 24.x (set in `package.json`)    |
+
+Keep the Root Directory at the repository root, not `apps/web`, because this is a Bun workspace with shared TypeScript code. The config overrides dashboard build/install/output commands. Redeploy the **latest commit on `main`**, rather than retrying the original failed commit.
+
+No Vercel environment variables are required. **Do not add the OpenAI key or connection token as `VITE_*` variables.** `bun run build` is also a frontend-only build, so the previous dashboard default works. Frontend type checking excludes the local server, tests, and generated Prisma client. A fresh checkout builds without running `setup`, creating a database, generating Prisma, or configuring OpenAI.
+
+Vercel hosts the web app and its offline shell. Activities, categories, backups, and seven-day statistics work with the AI server off. The Elysia/Prisma/SQLite AI service **continues to run on your computer**, as designed; this deployment does not add Vercel Functions or a cloud database.
+
+For the coach on the hosted app:
+
+1. Configure `apps/server/.env` on your computer with the OpenAI key, model, and a long random `DAYLOG_TOKEN`.
+2. Add your exact stable Vercel origin (for example, `https://your-project.vercel.app`) to the comma-separated `ALLOWED_ORIGINS`. Each preview URL is a different origin; prefer the stable production URL for your journal.
+3. Run `bun run setup`, `bun run build:server`, then `bun run start:server` when needed. Make the API reachable through a trusted private HTTPS endpoint for your device/network, keeping token authentication enabled.
+4. In the hosted app's **Settings → Local AI server**, enter that HTTPS origin (without `/api`) and the matching connection token. Use **Save & test connection**.
+
+Leaving the address blank uses the included proxy only when running Daylog locally. A Vercel page cannot reach your computer through Vercel's `localhost`. Plain HTTP LAN endpoints may be blocked from an HTTPS page; use a private HTTPS connection for reliable phone access. Stop the local AI server when finished; journaling remains available.
+
+The deployment also configures SPA navigation, security headers, immutable hashed assets, and revalidation of the app shell and service worker. `/api/*` is excluded from SPA rewrites, and the client rejects HTML/error responses rather than treating them as a working AI connection.
+
+See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [Vite deployments](https://vercel.com/docs/frameworks/frontend/vite).
 
 ## OpenAI connection
 
@@ -72,8 +103,10 @@ The service worker / install / offline reload behavior requires **HTTPS or local
 ```sh
 bun run typecheck
 bun run test
-bun run build
+bun run build:all
 ```
+
+For the standalone web app or CI deployment, use `bun run build` (or `bun run build:web`). For a local full-stack build, `bun run build:all` generates Prisma, bundles the API, checks all authored TypeScript, and builds the web app. Database migration remains an explicit `bun run setup` step.
 
 Tests cover calendar arithmetic, overlaps/adjacency, midnight, archived categories, backup integrity and seven-day contexts, plus Elysia authentication, origin checks, setup states, validation, real Prisma/SQLite persistence, identical-request replay, and provider failure/retry. Provider behavior is mocked in automated tests; no API credits are spent.
 

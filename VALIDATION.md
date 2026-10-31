@@ -6,9 +6,19 @@ Verified locally on October 31, 2026.
 - Prisma client generation and committed SQLite migration: passed, including repeated setup.
 - Strict TypeScript check: passed.
 - Vite production build, service-worker generation, and Bun server bundle: passed.
-- Automated tests: **14 passed, 0 failed, 52 assertions**.
+- Automated tests: **20 passed, 0 failed, 64 assertions**.
 - The OpenAI SDK integration test uses a local HTTP fixture and verifies Responses request headers, model, context, output extraction, `store: false`, and output limit. It does not contact OpenAI.
 - API tests use an actual isolated Prisma/SQLite database, not a database mock.
+
+Vercel deployment preparation:
+
+- A clean source-only copy was installed with `bun install --frozen-lockfile` using **Bun 1.3.14** (the reported Vercel version) and **Node.js 24**.
+- `bun run build` succeeded in that clean copy, with no `.env`, SQLite database, or generated Prisma client present. The lockfile was unchanged.
+- `bun run build:all` also succeeded locally, including explicit Prisma generation, full TypeScript checking, API bundling, and the frontend/PWA build.
+- The committed Vercel configuration sets frozen installation, the frontend build command, output directory, SPA fallback, and security/cache headers. Keep the Vercel project's Root Directory at `./`.
+- Configured fields pass their official Vercel JSON Schema definitions. Vercel's routing utility compiles the rewrite/header rules; API, assets, and service-worker paths are excluded from SPA fallback.
+- New connection tests cover HTML SPA fallbacks, static-host API 404s, invalid JSON health payloads, authorization errors, and coach reply/request-ID validation. They contact local fixtures only.
+- This is a static frontend deployment with the existing local AI backend. A completed production Vercel deployment has not been verified from this machine.
 
 Real-browser checks against the built app:
 

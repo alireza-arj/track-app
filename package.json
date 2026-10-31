@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "version": "1.0.0",
+  "engines": {
+    "node": "24.x"
+  },
   "workspaces": [
     "apps/*"
   ],
@@ -12,8 +15,12 @@
     "dev:server": "bun --cwd apps/server dev",
     "setup": "bun scripts/configure.ts && bun --cwd apps/server db:generate && bun --cwd apps/server db:migrate",
     "typecheck": "tsc --noEmit",
+    "typecheck:web": "tsc --project apps/web/tsconfig.json --noEmit",
     "test": "bun test tests",
-    "build": "bun scripts/icons.ts && bun run typecheck && bun --cwd apps/web build && bun --cwd apps/server build",
+    "build": "bun run build:web",
+    "build:web": "bun scripts/icons.ts && bun run typecheck:web && bun --cwd apps/web build",
+    "build:server": "bun --cwd apps/server db:generate && bun --cwd apps/server build",
+    "build:all": "bun run build:server && bun run typecheck && bun run build:web",
     "start": "bun scripts/start.ts",
     "start:web": "bun scripts/serve-web.ts",
     "start:server": "bun --cwd apps/server start",

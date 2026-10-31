@@ -64,12 +64,42 @@ async function request<T>(
       'Cannot reach your local server. Start it and check the address, network permission, and connection settings.',
     );
   }
-  const data = await response
-    .json()
-    .catch(() => ({ error: 'The server returned an invalid response.' }));
-  if (!response.ok) throw new Error(data.error || 'Request failed.');
+  const invalidResponse = connection.url
+    ? 'This address did not return a valid Daylog API response. Check the server address in Settings.'
+    : 'No AI server is connected at this address. In Settings, enter a reachable HTTPS address for your local AI server, or use the included local proxy.';
+  const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+  if (contentType !== 'application/json' && !contentType?.endsWith('+json'))
+    throw new Error(invalidResponse);
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(invalidResponse);
+  }
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string')
+    throw new Error(data.error);
+  if (!response.ok) throw new Error('The AI server rejected the request. Check its configuration.');
   return data as T;
 }
-export const checkConnection = (c: Connection) => request<Health>(c, '/health');
-export const askCoach = (c: Connection, input: CoachInput, signal: AbortSignal) =>
-  request<{ answer: string; requestId: string }>(c, '/coach', input, signal);
+export async function checkConnection(c: Connection): Promise<Health> {
+  const data = await request<Partial<Health> | null>(c, '/health');
+  if (
+    data?.status !== 'ok' ||
+    typeof data.configured !== 'boolean' ||
+    !Array.isArray(data.missing) ||
+    !data.missing.every((item) => typeof item === 'string')
+  )
+    throw new Error('This address did not return a valid Daylog health response. Check Settings.');
+  return data as Health;
+}
+export async function askCoach(c: Connection, input: CoachInput, signal: AbortSignal) {
+  const data = await request<{ answer?: unknown; requestId?: unknown } | null>(
+    c,
+    '/coach',
+    input,
+    signal,
+  );
+  if (typeof data?.answer !== 'string' || !data.answer.trim() || data.requestId !== input.requestId)
+    throw new Error('The AI server returned an invalid reply. Please try again.');
+  return { answer: data.answer, requestId: input.requestId };
+}
