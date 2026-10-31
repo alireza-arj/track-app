@@ -28,6 +28,9 @@
 * {
   box-sizing: border-box;
 }
+.motion-root {
+  display: contents;
+}
 /* Keep native scrolling while removing browser chrome from the phone UI. */
 html,
 body,
@@ -62,12 +65,12 @@ button {
   -webkit-touch-callout: none;
   cursor: pointer;
   transition:
-    transform 130ms ease-out,
-    opacity 130ms ease-out;
+    transform var(--duration-feedback) var(--ease-out),
+    opacity var(--duration-feedback) var(--ease-out);
 }
-button:active {
-  transform: scale(0.96);
-  opacity: 0.75;
+button:enabled:active {
+  transform: scale(0.97);
+  opacity: 0.8;
 }
 button:disabled {
   opacity: 0.45;
@@ -163,6 +166,7 @@ button::-moz-focus-inner {
 }
 .main {
   padding: 28px 24px 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 .page-heading {
   display: flex;
@@ -219,6 +223,8 @@ h3 {
   margin: -2px 0 25px;
 }
 .day-selector button {
+  position: relative;
+  isolation: isolate;
   border-radius: 18px;
   display: flex;
   flex-direction: column;
@@ -247,8 +253,14 @@ h3 {
   opacity: 0;
 }
 .day-selector .selected {
-  background: var(--blue-solid);
   color: white;
+}
+.day-indicator {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--blue-solid);
   box-shadow: 0 6px 14px #153dff22;
 }
 .day-selector .selected span {
@@ -630,6 +642,8 @@ h3 {
   grid-template-columns: 1fr 1fr 58px 1.5fr;
 }
 .dock > button {
+  position: relative;
+  isolation: isolate;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -647,6 +661,13 @@ h3 {
   letter-spacing: -0.15px;
 }
 .dock > button.active {
+  background: transparent;
+}
+.dock-indicator {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   background: var(--active);
   box-shadow: 0 1px 7px #00000005;
 }
@@ -992,6 +1013,11 @@ h3 {
   justify-content: center;
   padding-top: env(safe-area-inset-top, 12px);
 }
+.sheet-position {
+  width: 100%;
+  max-width: 520px;
+  min-height: 0;
+}
 .sheet {
   background: var(--bg);
   width: 100%;
@@ -1034,6 +1060,7 @@ h3 {
   padding: 0 24px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 .form-group {
   padding: 0 16px;
@@ -1099,6 +1126,8 @@ h3 {
   margin-bottom: 20px;
 }
 .category-picker > button {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1115,8 +1144,21 @@ h3 {
   color: var(--category);
 }
 .category-picker > button.selected {
+  background: var(--surface);
+}
+.category-picker > button::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
   background: color-mix(in srgb, var(--category) 10%, var(--surface));
-  border-color: color-mix(in srgb, var(--category) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--category) 35%, transparent);
+  opacity: 0;
+  transition: opacity var(--duration-feedback) var(--ease-out);
+}
+.category-picker > button.selected::before {
+  opacity: 1;
 }
 .category-picker > button > svg:last-child:not(:first-child) {
   color: var(--category);
@@ -1405,6 +1447,15 @@ h3 {
   align-items: center;
   z-index: 60;
   font-size: 11px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--duration-surface) var(--ease-out),
+    transform var(--duration-surface) var(--ease-out);
+}
+.toast[data-ending] {
+  opacity: 0;
+  transform: translateY(25%);
 }
 .toast > span {
   flex: 1;
@@ -1472,9 +1523,66 @@ h3 {
 .note-disclosure[open] summary {
   margin-bottom: 4px;
 }
+.show-more > svg {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.inline-error,
+.connection-success,
+.status-banner,
+.message.assistant,
+.thinking,
+.note-disclosure textarea {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.category-picker > button > svg:last-child:not(:first-child),
+.color-picker svg,
+.category-preview svg {
+  transition: opacity var(--duration-feedback) var(--ease-out);
+}
+/* Mount fades do not delay rendering, focus, or pointer interaction. */
+@starting-style {
+  .main,
+  .sheet-content {
+    opacity: 0.5;
+  }
+  .toast {
+    opacity: 0;
+    transform: translateY(25%);
+  }
+  .inline-error,
+  .connection-success,
+  .status-banner,
+  .message.assistant,
+  .thinking,
+  .note-disclosure textarea {
+    opacity: 0;
+  }
+  .category-picker > button > svg:last-child:not(:first-child),
+  .color-picker svg,
+  .category-preview svg {
+    opacity: 0;
+  }
+}
+/* Native details remains usable in browsers without intrinsic-size transitions. */
+@supports (interpolate-size: allow-keywords) and selector(details::details-content) {
+  .note-disclosure::details-content {
+    interpolate-size: allow-keywords;
+    height: 0;
+    opacity: 0;
+    overflow: clip;
+    transition:
+      height var(--duration-surface) var(--ease-out),
+      opacity var(--duration-surface) var(--ease-out),
+      content-visibility var(--duration-surface) allow-discrete;
+  }
+  .note-disclosure[open]::details-content {
+    height: auto;
+    opacity: 1;
+  }
+}
 @media (hover: hover) and (pointer: fine) {
-  button:hover {
-    filter: brightness(0.97);
+  button:enabled:hover:not(:active) {
+    opacity: 0.85;
   }
 }
 @media (min-width: 600px) {
@@ -1614,17 +1722,47 @@ h3 {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
+  .motion-root {
+    --duration-feedback: var(--duration-reduced) !important;
+    --duration-fast: var(--duration-reduced) !important;
+    --duration-surface: var(--duration-reduced) !important;
   }
-  button:active {
-    transform: none;
+  .motion-root *,
+  .motion-root *::before,
+  .motion-root *::after,
+  .note-disclosure::details-content {
+    transition-property: opacity !important;
+    scroll-behavior: auto;
   }
+  button:enabled:active,
+  .dock > button,
+  .dock-indicator,
+  .day-indicator,
+  .sheet-position,
+  .toast[data-ending] {
+    transform: none !important;
+  }
+  .spin {
+    animation: none;
+    opacity: 0.65;
+  }
+  @starting-style {
+    .toast {
+      transform: none;
+    }
+  }
+}
+/* Keyboard navigation and activation stay immediate, including Escape exits. */
+[data-motion-input='keyboard'] *,
+[data-motion-input='keyboard'] *::before,
+[data-motion-input='keyboard'] *::after,
+[data-motion-input='keyboard'] .note-disclosure::details-content {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+[data-motion-input='keyboard'] button:enabled:active {
+  transform: none;
+  opacity: 1;
 }
 @media (prefers-reduced-transparency: reduce) {
   .dock {

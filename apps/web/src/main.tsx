@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { MotionProvider } from './motion';
 import './styles.css';
 class Boundary extends React.Component<{ children: React.ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -27,7 +28,9 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { failed: 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Boundary>
-      <App />
+      <MotionProvider>
+        <App />
+      </MotionProvider>
     </Boundary>
   </React.StrictMode>,
 );

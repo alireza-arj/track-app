@@ -1,12 +1,14 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
   type CSSProperties,
 } from 'react';
-import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'motion/react';
+import { AnimatePresence, motion, useDragControls, usePresence } from 'motion/react';
+import { motionTiming, useAppMotion } from './motion';
 import {
   Activity as ActivityIcon,
   ArrowDownToLine,
@@ -104,6 +106,7 @@ const uuid = () => {
     .join('');
 };
 type Screen = 'day' | 'week' | 'coach';
+type Notification = { text: string; undo?: () => Promise<void> };
 type Sheet =
   | { kind: 'activity'; entry?: Activity; draft?: Activity; start?: number; end?: number }
   | { kind: 'settings' }
@@ -127,23 +130,30 @@ function CategoryIcon({
 }
 function SheetFrame({
   title,
+  contentKey,
   children,
   onClose,
 }: {
   title: string;
+  contentKey: number;
   children: ReactNode;
   onClose: () => void;
 }) {
-  const controls = useDragControls(),
-    reduced = useReducedMotion();
+  const controls = useDragControls();
+  const { reduced, instant, transition } = useAppMotion();
   const ref = useRef<HTMLElement>(null);
   const original = useRef(document.activeElement as HTMLElement | null);
+  useLayoutEffect(() => {
+    const content = ref.current?.querySelector('.sheet-content');
+    if (content) content.scrollTop = 0;
+    ref.current
+      ?.querySelector<HTMLElement>('button:not(:disabled),input,select,textarea')
+      ?.focus({ preventScroll: true });
+  }, [contentKey]);
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const node = ref.current;
-    const first = node?.querySelector<HTMLElement>('button,input,select,textarea');
-    first?.focus();
     function key(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -168,7 +178,7 @@ function SheetFrame({
     return () => {
       document.body.style.overflow = previous;
       document.removeEventListener('keydown', key);
-      original.current?.isConnected && original.current.focus();
+      original.current?.isConnected && original.current.focus({ preventScroll: true });
     };
   }, [onClose]);
   return (
@@ -177,45 +187,54 @@ function SheetFrame({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, pointerEvents: 'auto' }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
-      transition={{ duration: reduced ? 0 : 0.18 }}
+      transition={transition()}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <motion.section
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sheet-title"
-        className="sheet"
-        initial={{ y: reduced ? 0 : '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: reduced ? 0 : '100%' }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.38 }}
-        drag={reduced ? false : 'y'}
-        dragControls={controls}
-        dragListener={false}
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.65 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 100 || info.velocity.y > 650) onClose();
-        }}
+      <motion.div
+        className="sheet-position"
+        initial={{ transform: reduced || instant ? 'none' : 'translateY(100%)' }}
+        animate={{ transform: 'translateY(0%)' }}
+        exit={{ transform: reduced || instant ? 'none' : 'translateY(100%)' }}
+        transition={transition(motionTiming.sheet, 'drawer')}
       >
-        <div
-          className="sheet-handle-area"
-          aria-hidden="true"
-          onPointerDown={(e) => controls.start(e)}
+        <motion.section
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sheet-title"
+          className="sheet"
+          drag={reduced ? false : 'y'}
+          dragControls={controls}
+          dragListener={false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.65 }}
+          dragTransition={{ bounceStiffness: 100, bounceDamping: 10 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 100 || info.velocity.y > 650) onClose();
+          }}
         >
-          <div className="sheet-handle" />
-        </div>
-        <header className="sheet-header">
-          <h2 id="sheet-title">{title}</h2>
-          <button className="circle small" aria-label="Close sheet" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="sheet-content">{children}</div>
-      </motion.section>
+          <div
+            className="sheet-handle-area"
+            aria-hidden="true"
+            onPointerDown={(e) => {
+              if (!reduced && e.isPrimary && e.button === 0) controls.start(e);
+            }}
+          >
+            <div className="sheet-handle" />
+          </div>
+          <header className="sheet-header">
+            <h2 id="sheet-title">{title}</h2>
+            <button className="circle small" aria-label="Close sheet" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </header>
+          <div key={contentKey} className="sheet-content">
+            {children}
+          </div>
+        </motion.section>
+      </motion.div>
     </motion.div>
   );
 }
@@ -225,7 +244,7 @@ export function App() {
     [screen, setScreen] = useState<Screen>('day'),
     [date, setDate] = useState(localDate()),
     [sheet, setSheetValue] = useState<Sheet>(null),
-    [toast, setToast] = useState<{ text: string; undo?: () => Promise<void> } | null>(null),
+    [toast, setToast] = useState<Notification | null>(null),
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(loadConnection),
     [health, setHealth] = useState<Health | null>(null),
@@ -236,6 +255,7 @@ export function App() {
     [pending, setPending] = useState<CoachInput | null>(null),
     [online, setOnline] = useState(navigator.onLine),
     [expanded, setExpanded] = useState(false);
+  const { instant, reduced, transition } = useAppMotion();
   const categoryReturn = useRef<{ entry?: Activity; draft: Activity } | null>(null);
   const sheetInstance = useRef(0);
   function setSheet(next: Sheet) {
@@ -710,7 +730,7 @@ export function App() {
             <button onClick={() => void updateServiceWorker(true)}>Update</button>
           </div>
         )}
-        <main className="main">
+        <main key={screen} className="main">
           <div className="page-heading">
             <div>
               <p className="eyebrow">
@@ -755,6 +775,14 @@ export function App() {
                       setExpanded(false);
                     }}
                   >
+                    {d === date && (
+                      <motion.b
+                        className="day-indicator"
+                        aria-hidden="true"
+                        layoutId={instant || reduced ? undefined : 'day-selection'}
+                        transition={transition(motionTiming.fast, 'inOut')}
+                      />
+                    )}
                     <span>{formatDate(d, { weekday: 'short' }).slice(0, 1)}</span>
                     <strong>{formatDate(d, { day: 'numeric' })}</strong>
                     {data.activities.some((e) => e.date === d) ? (
@@ -1162,36 +1190,66 @@ export function App() {
         </footer>
         <div className="dock-wrap">
           <nav className={'dock active-' + screen} aria-label="Main navigation">
-            <button
+            <motion.button
+              layout={instant || reduced ? false : 'position'}
+              transition={transition(motionTiming.fast, 'inOut')}
               aria-label="Today"
               aria-current={screen === 'day' ? 'page' : undefined}
               className={screen === 'day' ? 'active' : ''}
               onClick={() => setScreen('day')}
             >
+              {screen === 'day' && (
+                <motion.i
+                  className="dock-indicator"
+                  aria-hidden="true"
+                  layoutId={instant || reduced ? undefined : 'dock-selection'}
+                  transition={transition(motionTiming.surface, 'inOut')}
+                />
+              )}
               <House size={23} />
               <span>Today</span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              layout={instant || reduced ? false : 'position'}
+              transition={transition(motionTiming.fast, 'inOut')}
               aria-label="Week"
               aria-current={screen === 'week' ? 'page' : undefined}
               className={screen === 'week' ? 'active' : ''}
               onClick={() => setScreen('week')}
             >
+              {screen === 'week' && (
+                <motion.i
+                  className="dock-indicator"
+                  aria-hidden="true"
+                  layoutId={instant || reduced ? undefined : 'dock-selection'}
+                  transition={transition(motionTiming.surface, 'inOut')}
+                />
+              )}
               <CalendarDays size={23} />
               <span>Week</span>
-            </button>
+            </motion.button>
             <button className="dock-add" aria-label="Log activity" onClick={openActivity}>
               <Plus size={30} />
             </button>
-            <button
+            <motion.button
+              layout={instant || reduced ? false : 'position'}
+              transition={transition(motionTiming.fast, 'inOut')}
               aria-label="Coach"
               aria-current={screen === 'coach' ? 'page' : undefined}
               className={screen === 'coach' ? 'active' : ''}
               onClick={() => setScreen('coach')}
             >
+              {screen === 'coach' && (
+                <motion.i
+                  className="dock-indicator"
+                  aria-hidden="true"
+                  layoutId={instant || reduced ? undefined : 'dock-selection'}
+                  transition={transition(motionTiming.surface, 'inOut')}
+                />
+              )}
               <MessageCircle size={23} />
               <span>Coach</span>
-            </button>
+            </motion.button>
           </nav>
         </div>
       </div>
@@ -1212,10 +1270,11 @@ export function App() {
           }
         }}
       />
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {sheet && (
           <SheetFrame
-            key={sheet.kind + sheetInstance.current}
+            key="journal-sheet"
+            contentKey={sheetInstance.current}
             title={titles[sheet.kind]}
             onClose={closeSheet}
           >
@@ -1225,36 +1284,48 @@ export function App() {
       </AnimatePresence>
       <AnimatePresence>
         {toast && (
-          <motion.div
-            className="toast"
-            role="status"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 15 }}
-          >
-            <Check size={17} />
-            <span>{toast.text}</span>
-            {toast.undo && (
-              <button
-                onClick={() => {
-                  const undo = toast.undo;
-                  setToast(null);
-                  void undo?.();
-                }}
-              >
-                Undo
-              </button>
-            )}
-            <button
-              className="toast-close"
-              aria-label="Dismiss notification"
-              onClick={() => setToast(null)}
-            >
-              <X size={14} />
-            </button>
-          </motion.div>
+          <Toast key="notification" notification={toast} onDismiss={() => setToast(null)} />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+function Toast({ notification, onDismiss }: { notification: Notification; onDismiss: () => void }) {
+  const [present, safeToRemove] = usePresence();
+  const { transition } = useAppMotion();
+  const duration = transition().duration;
+  useEffect(() => {
+    if (present) return;
+    if (!duration) {
+      safeToRemove?.();
+      return;
+    }
+    const timer = window.setTimeout(() => safeToRemove?.(), duration * 1000);
+    return () => window.clearTimeout(timer);
+  }, [present, safeToRemove, duration]);
+  return (
+    <div
+      className="toast"
+      role="status"
+      data-ending={!present || undefined}
+      aria-hidden={!present || undefined}
+      inert={!present}
+    >
+      <Check size={17} />
+      <span>{notification.text}</span>
+      {notification.undo && (
+        <button
+          onClick={() => {
+            onDismiss();
+            void notification.undo?.();
+          }}
+        >
+          Undo
+        </button>
+      )}
+      <button className="toast-close" aria-label="Dismiss notification" onClick={onDismiss}>
+        <X size={14} />
+      </button>
     </div>
   );
 }
