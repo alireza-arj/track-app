@@ -699,7 +699,7 @@ export function App() {
     import: 'Restore backup',
   };
   return (
-    <div className="app-shell">
+    <div className={`app-shell screen-${screen}`}>
       <div className="app-body" inert={sheet !== null}>
         <header className="topbar">
           <a
@@ -844,9 +844,7 @@ export function App() {
                   </span>
                   <h3>A day worth noticing.</h3>
                   <p>
-                    What did you spend time on?
-                    <br />
-                    Start with one thing. The picture grows from there.
+                    Start with one activity. The picture grows from there.
                   </p>
                   <button className="primary" onClick={openActivity}>
                     <Plus size={18} />
