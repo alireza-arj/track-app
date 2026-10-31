@@ -108,7 +108,14 @@ const uuid = () => {
 type Screen = 'day' | 'week' | 'coach';
 type Notification = { text: string; undo?: () => Promise<void> };
 type Sheet =
-  | { kind: 'activity'; entry?: Activity; draft?: Activity; start?: number; end?: number }
+  | {
+      kind: 'activity';
+      entry?: Activity;
+      draft?: Activity;
+      date?: string;
+      start?: number;
+      end?: number;
+    }
   | { kind: 'settings' }
   | { kind: 'categories' }
   | { kind: 'category'; category?: Category }
@@ -463,7 +470,6 @@ export function App() {
     weekMinutes = weekEntries.reduce((n, e) => n + e.end - e.start, 0),
     loggedDays = new Set(weekEntries.map((e) => e.date)).size,
     rows = timeline(entries),
-    suggestedGap = rows.find((r) => 'gap' in r),
     lookup = new Map(data.categories.map((c) => [c.id, c])),
     firstEntry = data.activities.length === 0;
   const pageTitle =
@@ -475,11 +481,13 @@ export function App() {
         ? 'Your week'
         : 'A little clarity.';
   function openActivity() {
-    const start = entries.length ? (suggestedGap?.start ?? 540) : 540;
+    const previousEnd = entries.at(-1)?.end ?? 540;
+    const start = previousEnd === 1440 ? 0 : previousEnd;
     setSheet({
       kind: 'activity',
+      date: previousEnd === 1440 ? addDays(date, 1) : date,
       start,
-      end: Math.min(start + 60, entries.length ? (suggestedGap?.end ?? 1440) : 1440),
+      end: Math.min(start + 60, 1440),
     });
   }
   function renderSheet() {
@@ -489,7 +497,7 @@ export function App() {
         return (
           <ActivityEditor
             key={sheet.entry?.id || 'new'}
-            date={date}
+            date={sheet.date ?? date}
             entry={sheet.entry}
             draftValue={sheet.draft}
             start={sheet.start}
